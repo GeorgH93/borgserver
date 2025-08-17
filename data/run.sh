@@ -6,11 +6,14 @@ PGID=${PGID:-1000}
 
 usermod -o -u "$PUID" borg &>/dev/null
 groupmod -o -g "$PGID" borg &>/dev/null
+usermod -o -u "$PUID" data &>/dev/null
+groupmod -o -g "$PGID" data &>/dev/null
 
 BORG_DATA_DIR=/backup
 SSH_KEY_DIR=/sshkeys
 BORG_CMD='cd ${BORG_DATA_DIR}/${client_name}; borg serve --restrict-to-path ${BORG_DATA_DIR}/${client_name} ${BORG_SERVE_ARGS}'
 AUTHORIZED_KEYS_PATH=/home/borg/.ssh/authorized_keys
+AUTHORIZED_KEYS_PATH_DATA=/data/.ssh/authorized_keys
 
 # Append only mode?
 BORG_APPEND_ONLY=${BORG_APPEND_ONLY:=no}
@@ -56,11 +59,15 @@ for keytype in ed25519 rsa ; do
 	fi
 done
 
+mkdir -p /data/.ssh 2>/dev/null
+chown data:data /data/.ssh 2>/dev/null
+
 echo "########################################################"
 echo " * Starting SSH-Key import..."
 
 # Add every key to borg-users authorized_keys
 rm ${AUTHORIZED_KEYS_PATH} &>/dev/null
+rm ${AUTHORIZED_KEYS_PATH_DATA} &>/data/null
 for keyfile in $(find "${SSH_KEY_DIR}/clients" ! -regex '.*/\..*' -a -type f); do
     client_name=$(basename ${keyfile})
     mkdir ${BORG_DATA_DIR}/${client_name} 2>/dev/null
@@ -79,8 +86,11 @@ for keyfile in $(find "${SSH_KEY_DIR}/clients" ! -regex '.*/\..*' -a -type f); d
   echo -n "restrict,command=\"$(eval echo -n \"${borg_cmd}\")\" " >> ${AUTHORIZED_KEYS_PATH}
   cat ${keyfile} >> ${AUTHORIZED_KEYS_PATH}
   echo >> ${AUTHORIZED_KEYS_PATH}
+  cat ${keyfile} >> ${AUTHORIZED_KEYS_PATH_DATA}
+  echo >> ${AUTHORIZED_KEYS_PATH_DATA}
 done
 chmod 0600 "${AUTHORIZED_KEYS_PATH}"
+chmod 0600 "${AUTHORIZED_KEYS_PATH_DATA}"
 
 echo " * Validating structure of generated ${AUTHORIZED_KEYS_PATH}..."
 ERROR=$(ssh-keygen -lf ${AUTHORIZED_KEYS_PATH} 2>&1 >/dev/null)
@@ -92,6 +102,8 @@ fi
 chown -R borg:borg ${BORG_DATA_DIR}
 chown borg:borg ${AUTHORIZED_KEYS_PATH}
 chmod 600 ${AUTHORIZED_KEYS_PATH}
+chown data:data ${AUTHORIZED_KEYS_PATH_DATA}
+chmod 600 ${AUTHORIZED_KEYS_PATH_DATA}
 
 echo "########################################################"
 echo " * Init done! Starting SSH-Daemon..."

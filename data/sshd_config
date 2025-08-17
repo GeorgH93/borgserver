@@ -21,7 +21,7 @@ UsePAM yes
 AllowAgentForwarding no
 AllowTcpForwarding no
 X11Forwarding no
-PermitTTY no
+PermitTTY yes
 PrintMotd no
 PermitTunnel no
 Subsystem	sftp	/bin/false
